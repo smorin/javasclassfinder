@@ -1,0 +1,305 @@
+#!/usr/bin/python
+
+#Copyright (c) 2007 Steve Morin
+#
+#Permission is hereby granted, free of charge, to any person obtaining a copy
+#of this software and associated documentation files (the "Software"), to deal
+#in the Software without restriction, including without limitation the rights
+#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#copies of the Software, and to permit persons to whom the Software is
+#furnished to do so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in
+#all copies or substantial portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#THE SOFTWARE.
+
+# MIT is just a cool school
+
+import sys
+import os
+import zipfile
+import re
+import StringIO
+import getopt
+import string
+import exceptions
+
+def authors():
+	print """
+		Creator - Steve Morin - steve.morin@gmail.com
+		Contributors:
+			Brent Holden
+"""
+
+version="1.0.5"
+
+def pr(vtype,verbosity,message):
+	if vtype <= verbosity:
+		print message	
+
+#to be used as wrapper around zipfile of parent
+class JcZipFile(zipfile.ZipFile):
+	pass
+	def inc(self):
+		pass
+	def close(self):
+		pass
+
+class JcEntry:
+	jar=None
+	parent=None
+	def __init__(self,jar=None,parent=None):
+		self.jar=jar
+		self.parent=parent
+		#if(self.jar==None):
+		#	print "raising exception"
+		#	raise Exception()
+	def setParent(self,parent):
+		self.parent=parent
+	def setJar(self,jar):
+		self.jar=jar
+	def getJar(self):
+		if self.parent==None:
+			return zipfile.ZipFile(self.jar,'r')
+		else:
+			file = StringIO.StringIO()
+			file.write(zip.read(self.jar))	
+			return file
+	def getFilenames(self):
+		zf = self.getJar()
+		names =  zf.namelist()
+		return names
+	def close():
+		pass
+class JcResult:
+	pass	
+#want to add file search too part of initLoad eventually	
+class jcFind:
+	processing=False
+	verbosity=None
+	jarPattern=None
+	filePattern=None
+	startLocation=None
+	def __init__(self):
+		self.setJarPattern(["jar","war","ear","sar"])
+		pass
+	def search(self,start):
+		self.startLocation = start
+		if not self.processing:
+			self.processing=True
+			entrylist = self.__initLoadJars(self.startLocation)
+			resultlist = []
+			for entry in entrylist:
+				results, newentries = self.__searchEntry(entry)
+				resultlist.extend(results)
+				entrylist.extend(newentries)
+			self.processing=False
+
+		
+	def __printResults(self):
+		print "Results"
+	def __initLoadJars(self,start):
+		fileList = []
+		if os.path.isfile(start):
+			fileList.append(jcEntry(start))
+			return fileList
+		for root, dirs, files in os.walk(start):
+			self.pr3((root, dirs, files))
+			for file in files:
+				for pattern in self.jarPattern:
+					if file.endswith('.'+pattern):
+						self.pr1(file)
+						fileList.append(JcEntry(os.path.join(root,file)))
+		return fileList
+	def __searchEntry(self,entry):
+		p = self.filePattern
+		try:
+			zf = zipfile.ZipFile(fileName)
+			names =  zf.namelist()
+			for name in names:
+				if p.match(name):
+					if self.verbosity == -1:
+						print fileName
+						break
+					else:
+						print fileName, name
+			zf.close()
+			pass
+		except IOError:
+			pass
+		except zipfile.BadZipfile:
+			self.pr0(("Could not open zipfile:", fileName))
+	def pr0(self,message):
+		self.pr(1,message)
+	def pr1(self,message):
+		self.pr(1,message)
+	def pr2(self,message):
+		self.pr(2,message)
+	def pr3(self,message):
+		self.pr(3,message)
+	def pr(self,vtype,message):
+		if vtype <= self.verbosity:
+			print message	
+	def setJarPattern(self,jarpattern):
+		self.jarPattern=jarpattern
+	def setFilePattern(self,filepattern):
+		self.filePattern=re.compile('.*'+filepattern+'.*')
+	def setVerbosity(self,verbosity):
+		self.verbosity=verbosity
+
+def filesMatch(startPath,patterns,verbosity=None):
+	fileList = []
+	for root, dirs, files in os.walk(startPath):
+		pr(3,verbosity,(root, dirs, files))
+		for file in files:
+			for pattern in patterns:
+				if file.endswith('.'+pattern):
+					pr(1,verbosity, file)
+					fileList.append(os.path.join(root,file))
+	return fileList
+
+
+def checkIfMatch(fileName,pattern,verbosity=None):
+	p = re.compile('.*'+pattern+'.*')
+	try:
+		zf = zipfile.ZipFile(fileName)
+		names =  zf.namelist()
+		for name in names:
+			if p.match(name):
+				if verbosity == -1:
+					print fileName
+					break
+				else:
+					print fileName, name
+		zf.close()
+		pass
+	except IOError:
+		pass
+	except zipfile.BadZipfile:
+		pr(0,verbosity,("Could not open zipfile:", fileName))
+
+def usage(arg=None):
+	if not arg:
+		print """Usage: jcfind [OPTION]... PATTERN[@DIRECTORY]
+Finds files(matching PATTERN) located in jars starting at DIRECTORY(the current directory by default).
+
+Mandatory arguments to long options are mandatory for short options too.
+  -h, --help=command       print this help, then exit OR print help on COMMAND 
+      --v                    show more output
+      --vv                   show even more output
+      --vvv                  show most output
+      --author               print the authors of this file, then exit
+      --version              version of this program, then exit
+  -m, --match-only           show only jars that contain a match
+"""
+	else:
+		if arg in ("help","h"):
+			print """Your already using that command"""
+		elif arg in ("v","vv","vvv"):
+			print """Verbose(v,vv,vvv) setting 1, 2, and 3 repectively"""
+		elif arg in ("match-only","m"):
+			print """Only output jar names with a matching pattern"""
+		else:
+			print """Command not known by help."""
+
+
+def main():
+	verbosity = -2
+	test = False
+	try:
+		opts, args = getopt.getopt(sys.argv[1:], "d:he:mt", ["version","author","match-only","v","vv","vvv","help=", "output=","debug"])
+# print help information and exit:
+		output = None
+		ext=["jar","war","ear"]
+		dir = None
+		for o, a in opts:
+			if o == "-d":
+				dir = a
+			if o == "--v":
+				verbosity = 1
+			if o == "--vv":
+				verbosity = 2
+			if o == "--vvv":
+				verbosity = 3
+			if o in ("-m","--match-only"):
+				verbosity = -1
+			if o in ("-h", "--help"):
+				print a
+				usage(a)
+				sys.exit()
+			if o in ("-o", "--output"):
+				output = a
+			if o == "-e":
+				def strip(astring):
+					if astring is None:
+						return None
+					else:
+						return astring.strip()
+				ext = map(strip,a.split(','))
+			if o == "--author":
+				authors()
+				sys.exit(0)
+			if o == "--version":
+				print "jcfind version - "+version
+				sys.exit(0)
+			if o == "--debug":
+				verbosity = 4
+			if o == "-t":
+				test = True
+		input = args[0]
+		pr(3,verbosity,input)
+		input = string.split(input,'@',1)
+		pr(3,verbosity,input)
+		match = input[0]
+		if not dir and len(input) == 2:
+			dir = input[1]
+		else:
+			dir = "."
+#basically if equals 5 was never overridden and is normal
+		if verbosity == -2:
+			verbosity = 0
+		if ext is None or len(ext) == 0:
+			ext = ["jar","war","ear","sar"]
+		if test:
+			finder = jcFind()
+			finder.setFilePattern(match)
+			finder.setJarPattern(ext)
+			finder.setVerbosity(verbosity)
+			finder.search(dir)
+			sys.exit()
+		pr(2,verbosity,"Checking extensions:"+str(ext))
+		jars = filesMatch(dir,ext,verbosity)
+		for jar in jars:
+			pr(3,verbosity,jar)
+			checkIfMatch(jar,match,verbosity)
+	except (IndexError):
+		usage()
+		sys.exit(1)
+	except (getopt.GetoptError),e:
+		print e
+		usage()
+		sys.exit(3)
+	except (exceptions.SystemExit):
+		pass
+	except:
+		print "Sorry:", sys.exc_type, ":", sys.exc_value
+		usage()
+		if verbosity == -2:
+			raise
+		sys.exit(2)
+	
+
+
+if __name__ == '__main__':
+
+#	if len(sys.argv) != 3:
+	main()
+
+

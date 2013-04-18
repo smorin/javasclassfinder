@@ -1,0 +1,35 @@
+#!/usr/bin/python
+
+import sys
+import os
+import zipfile
+import re
+import StringIO
+import getopt
+import string
+import exceptions
+
+def addDir2Dirmap(list,dir):
+	for item in list:
+		if item.startswith(dir):
+			continue
+		if dir.startswith(item):
+			list.remove(item)
+	list.append(dir)
+
+def printDirmapResult(list):
+	for item in list:
+		print item
+
+def dirmap(startPath):
+	fileList = []
+	for root, dirs, files in os.walk(startPath):
+		addDir2Dirmap(fileList,root)
+	printDirmapResult(fileList)
+startPath = None
+
+if len(sys.argv) == 2:
+        startPath = sys.argv[1]
+if startPath == None:
+        startPath = "."
+dirmap(startPath)
