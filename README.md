@@ -8,7 +8,7 @@ This utility helps you locate java classes.
 To use just add 
 downloaddirectory/bin/jcfind to your class path
 
-Founder
+Creator
 Steve Morin - steve@stevemorin.com
 
 Contributers
